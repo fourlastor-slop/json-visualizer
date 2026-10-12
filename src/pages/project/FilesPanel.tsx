@@ -1,6 +1,7 @@
 /** The files of a project: upload, append, replace, rename, recolor, delete. */
 import { type DragEvent, useRef, useState } from 'react';
 import { SERIES_COUNT, SERIES_NAMES, seriesColor } from '../../data/colors';
+import { type NameGroup, byNaturalName, groupByNumber, unitsOf } from '../../data/grouping';
 import { addFile, appendToFile, deleteFile, renameFile, replaceFile, setFileColor, shuffleFileColors } from '../../data/store';
 import type { DataFile, Project, Visualization } from '../../data/types';
 import { formatBytes, plural } from '../../lib/format';
@@ -10,6 +11,7 @@ import { confirm, toast, toastError } from '../../ui/feedback';
 import { Icon } from '../../ui/Icon';
 import { Menu } from '../../ui/Menu';
 import { NameDialog } from '../NameDialog';
+import { CombineDialog } from './CombineDialog';
 
 interface Props {
   project: Project;
@@ -40,6 +42,7 @@ export function FilesPanel({ project, files, visualizations, onInspect }: Props)
   const [dragging, setDragging] = useState(false);
   const [renaming, setRenaming] = useState<DataFile | null>(null);
   const [collision, setCollision] = useState<{ existing: DataFile; settle(choice: Collision): void } | null>(null);
+  const [offer, setOffer] = useState<{ groups: Array<NameGroup<File>>; settle(combined: Array<NameGroup<File>> | null): void } | null>(null);
 
   const working = async (label: string, work: () => Promise<void>) => {
     setBusy((current) => [...current, label]);
@@ -55,29 +58,38 @@ export function FilesPanel({ project, files, visualizations, onInspect }: Props)
     }
   };
 
-  const upload = async (sources: File[]) => {
+  /** " from 8 files", where what was uploaded is more than one. */
+  const origin = (sources: File[]) => (sources.length > 1 ? ` from ${plural(sources.length, 'file')}` : '');
+
+  const upload = async (chosen: File[]) => {
+    // Uploads that differ only by a number in their name can go into one file. Asked
+    // once for the whole batch, before anything is stored.
+    const { groups } = groupByNumber(chosen);
+    const combined = groups.length === 0 ? [] : await new Promise<Array<NameGroup<File>> | null>((settle) => setOffer({ groups, settle }));
+    setOffer(null);
+    if (combined === null) return;
+
     // Names taken in this project, including by files added earlier in this batch.
     const byName = new Map(files.map((file) => [file.name, file]));
-    for (const source of sources) {
-      const existing = byName.get(source.name);
+    for (const { name, sources } of unitsOf(chosen, combined)) {
+      const existing = byName.get(name);
       const choice = existing ? await new Promise<Collision>((settle) => setCollision({ existing, settle })) : 'keep';
       setCollision(null);
       if (choice === 'skip') continue;
-      await working(source.name, async () => {
+      await working(name, async () => {
         if (existing && choice === 'append') {
           const before = existing.records;
-          const file = await appendToFile(existing.id, source);
+          const file = await appendToFile(existing.id, sources);
           byName.set(file.name, file);
-          toast(`Appended ${plural(file.records - before, 'record')} to ${file.name}.`);
+          toast(`Appended ${plural(file.records - before, 'record')}${origin(sources)} to ${file.name}.`);
         } else if (existing && choice === 'replace') {
-          const file = await replaceFile(existing.id, source);
+          const file = await replaceFile(existing.id, sources);
           byName.set(file.name, file);
-          toast(`Replaced ${file.name}: ${plural(file.records, 'record')}.`);
+          toast(`Replaced ${file.name}: ${plural(file.records, 'record')}${origin(sources)}.`);
         } else {
-          const name = existing ? freeName(source.name, new Set(byName.keys())) : source.name;
-          const file = await addFile(project.id, source, name);
+          const file = await addFile(project.id, sources, existing ? freeName(name, new Set(byName.keys())) : name);
           byName.set(file.name, file);
-          toast(`Added ${file.name}: ${plural(file.records, 'record')}.`);
+          toast(`Added ${file.name}: ${plural(file.records, 'record')}${origin(sources)}.`);
         }
       });
     }
@@ -88,18 +100,20 @@ export function FilesPanel({ project, files, visualizations, onInspect }: Props)
     actionInput.current?.click();
   };
 
-  const runAction = async (source: File) => {
+  const runAction = async (chosen: File[]) => {
     const pending = action.current;
     action.current = null;
     if (!pending) return;
     const { file, mode } = pending;
+    // Several files go in by name, numbers counted as numbers: part 2 before part 10.
+    const sources = [...chosen].sort((a, b) => byNaturalName(a.name, b.name));
     await working(file.name, async () => {
       if (mode === 'append') {
-        const updated = await appendToFile(file.id, source);
-        toast(`Appended ${plural(updated.records - file.records, 'record')} to ${file.name}.`);
+        const updated = await appendToFile(file.id, sources);
+        toast(`Appended ${plural(updated.records - file.records, 'record')}${origin(sources)} to ${file.name}.`);
       } else {
-        const updated = await replaceFile(file.id, source);
-        toast(`Replaced the contents of ${file.name}: ${plural(updated.records, 'record')}.`);
+        const updated = await replaceFile(file.id, sources);
+        toast(`Replaced the contents of ${file.name}: ${plural(updated.records, 'record')}${origin(sources)}.`);
       }
     });
   };
@@ -170,11 +184,12 @@ export function FilesPanel({ project, files, visualizations, onInspect }: Props)
         ref={actionInput}
         type="file"
         accept={ACCEPT}
+        multiple
         hidden
         onChange={(event) => {
-          const chosen = event.target.files?.[0];
+          const chosen = Array.from(event.target.files ?? []);
           event.target.value = '';
-          if (chosen) void runAction(chosen);
+          if (chosen.length > 0) void runAction(chosen);
         }}
       />
 
@@ -204,7 +219,7 @@ export function FilesPanel({ project, files, visualizations, onInspect }: Props)
                 <span className="file-name">{file.name}</span>
                 <span className="file-meta">
                   {plural(file.records, 'record')} · {formatBytes(file.size)}
-                  {file.chunks > 1 ? ` · ${file.chunks - 1} ${file.chunks === 2 ? 'append' : 'appends'}` : ''}
+                  {file.chunks > 1 ? ` · from ${file.chunks} files` : ''}
                 </span>
               </button>
               <Menu
@@ -245,6 +260,8 @@ export function FilesPanel({ project, files, visualizations, onInspect }: Props)
           onClose={() => setRenaming(null)}
         />
       )}
+
+      {offer && <CombineDialog groups={offer.groups} onSettle={offer.settle} />}
 
       {collision && (
         <Dialog

@@ -1,6 +1,7 @@
 import { describe, expect, it } from 'vitest';
 import { SERIES_COUNT, pickSeriesSlot, pickSeriesSlots, separation } from '../src/data/colors';
 import { runQuery, toRows } from '../src/data/engine';
+import { byNaturalName, groupByNumber, unitsOf } from '../src/data/grouping';
 import { QueryError } from '../src/data/query';
 import { ParseError, formatFromName, parseSource, parseStored } from '../src/data/parse';
 import { childSchema, flattenPaths, inferSchema, isSequenceLike, itemsSchema, keysOf, mergeSchemas, resolvePath, typeLabel } from '../src/data/schema';
@@ -205,5 +206,89 @@ describe('running queries', () => {
 
   it('stops queries that would run forever', async () => {
     await expect(runQuery('($f := function($n) { $f($n + 1) }; $f(1))', records, { timeoutMs: 200 })).rejects.toThrow(/timeout/i);
+  });
+});
+
+describe('uploads that belong together', () => {
+  const named = (...names: string[]) => names.map((name) => ({ name }));
+  /** The groups found among some names: combined name, pattern, and members in order. */
+  const grouped = (...names: string[]) => {
+    const { groups, rest } = groupByNumber(named(...names));
+    return { groups: groups.map((group) => [group.name, group.pattern, group.members.map((member) => member.name)]), rest: rest.map((item) => item.name) };
+  };
+
+  it('are the files whose names differ only by a number', () => {
+    const steps = ['0120', '0240', '0360', '0480'];
+    // In the order a file picker hands them over: by name.
+    const names = [...steps.map((step) => `pilots-alone.${step}.json`), 'notes.json', ...steps.map((step) => `with-itself.${step}.json`)];
+    const { groups, rest } = groupByNumber(named(...names));
+    expect(groups.map((group) => [group.name, group.pattern, group.numbers])).toEqual([
+      ['pilots-alone.json', 'pilots-alone.*.json', steps],
+      ['with-itself.json', 'with-itself.*.json', steps],
+    ]);
+    expect(groups[1]!.members.map((member) => member.name)).toEqual(steps.map((step) => `with-itself.${step}.json`));
+    expect(rest).toEqual([{ name: 'notes.json' }]);
+  });
+
+  it('are put in the order of their numbers, however they are written', () => {
+    expect(grouped('step-10.json', 'step-9.json', 'step-100.json').groups).toEqual([['step.json', 'step-*.json', ['step-9.json', 'step-10.json', 'step-100.json']]]);
+    expect(grouped('t-20261012103000123456.log', 't-9.log', 't-20261012103000123455.log').groups[0]![2]).toEqual(['t-9.log', 't-20261012103000123455.log', 't-20261012103000123456.log']);
+  });
+
+  it('are named after what they share', () => {
+    const nameOf = (...names: string[]) => grouped(...names).groups.map((group) => group[0]);
+    expect(nameOf('0120-metrics.jsonl', '0240-metrics.jsonl')).toEqual(['metrics.jsonl']);
+    expect(nameOf('data_01_final.json', 'data_02_final.json')).toEqual(['data_final.json']);
+    expect(nameOf('epoch7 loss.json', 'epoch8 loss.json')).toEqual(['epoch loss.json']);
+    expect(nameOf('log (1).json', 'log (2).json')).toEqual(['log.json']);
+    expect(nameOf('run.0120', 'run.0240')).toEqual(['run']);
+    expect(nameOf('1.json', '2.json')).toEqual(['combined.json']);
+  });
+
+  it('go by the last number that differs, when a name has several', () => {
+    // A number that is the same everywhere is part of the name.
+    expect(grouped('v2-run.0120.json', 'v2-run.0240.json').groups).toEqual([['v2-run.json', 'v2-run.*.json', ['v2-run.0120.json', 'v2-run.0240.json']]]);
+    expect(grouped('with-itself.0120.v2.json', 'with-itself.0240.v2.json').groups.map((group) => group.slice(0, 2))).toEqual([['with-itself.v2.json', 'with-itself.*.v2.json']]);
+    // Two runs of two steps each are two files, not one and not four.
+    expect(grouped('run1-step1.json', 'run2-step1.json', 'run1-step2.json', 'run2-step2.json')).toEqual({
+      groups: [
+        ['run1-step.json', 'run1-step*.json', ['run1-step1.json', 'run1-step2.json']],
+        ['run2-step.json', 'run2-step*.json', ['run2-step1.json', 'run2-step2.json']],
+      ],
+      rest: [],
+    });
+  });
+
+  it('are not found where names differ by more than that, or not by a number', () => {
+    const alone = (...names: string[]) => expect(grouped(...names)).toEqual({ groups: [], rest: names });
+    alone('pilots.json', 'itself.json');
+    alone('a1.json', 'b1.json', 'c1.json');
+    alone('part1.json', 'part2.jsonl');
+    alone('a1.json', 'a01.json');
+    alone('only-one.0120.json');
+    alone();
+  });
+
+  it('take the place of their first member among the other uploads', () => {
+    const items = named('b.2.json', 'notes.json', 'a.1.json', 'b.1.json', 'a.2.json');
+    const { groups } = groupByNumber(items);
+    const made = (combined: typeof groups) => unitsOf(items, combined).map((unit) => [unit.name, unit.sources.map((source) => source.name)]);
+    expect(made(groups)).toEqual([
+      ['b.json', ['b.1.json', 'b.2.json']],
+      ['notes.json', ['notes.json']],
+      ['a.json', ['a.1.json', 'a.2.json']],
+    ]);
+    // A group that is not combined stays the files it was.
+    expect(made(groups.filter((group) => group.name === 'a.json'))).toEqual([
+      ['b.2.json', ['b.2.json']],
+      ['notes.json', ['notes.json']],
+      ['a.json', ['a.1.json', 'a.2.json']],
+      ['b.1.json', ['b.1.json']],
+    ]);
+    expect(made([]).map((unit) => unit[0])).toEqual(items.map((item) => item.name));
+  });
+
+  it('are sorted the way a person would sort names', () => {
+    expect(['part10.json', 'part2.json', 'Part1.json', 'part009.json'].sort(byNaturalName)).toEqual(['Part1.json', 'part2.json', 'part009.json', 'part10.json']);
   });
 });

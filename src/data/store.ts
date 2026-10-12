@@ -141,15 +141,22 @@ function requestPersistence(): void {
   void navigator.storage?.persist?.().catch(() => false);
 }
 
-/** Uploads a new file into a project, giving it a color unlike those of its siblings. */
-export async function addFile(projectId: string, source: File, name = source.name): Promise<DataFile> {
+/** What is uploaded: one file, or several whose records follow one another in one file. */
+type Upload = File | readonly File[];
+
+const sourcesOf = (upload: Upload) => (upload instanceof File ? [upload] : [...upload]).map((file) => ({ name: file.name, data: file }));
+
+/**
+ * Uploads a new file into a project, giving it a color unlike those of its siblings.
+ * Named after the upload unless told otherwise; several uploads need a name.
+ */
+export async function addFile(projectId: string, upload: Upload, name = sourcesOf(upload)[0]?.name ?? 'Untitled'): Promise<DataFile> {
   requestPersistence();
   const taken = state.files.filter((file) => file.projectId === projectId).map((file) => file.color);
   const file = await ingestFile({
     mode: 'create',
     file: { id: newId(), projectId, name, color: pickSeriesSlot(taken) },
-    source,
-    sourceName: source.name,
+    sources: sourcesOf(upload),
   });
   setState({ files: replace(state.files, file) });
   await touchProject(projectId);
@@ -157,18 +164,18 @@ export async function addFile(projectId: string, source: File, name = source.nam
   return file;
 }
 
-/** Adds the records of an upload after the existing ones. */
-export async function appendToFile(fileId: string, source: File): Promise<DataFile> {
-  const file = await ingestFile({ mode: 'append', fileId, source, sourceName: source.name });
+/** Adds the records of what is uploaded after the existing ones. */
+export async function appendToFile(fileId: string, upload: Upload): Promise<DataFile> {
+  const file = await ingestFile({ mode: 'append', fileId, sources: sourcesOf(upload) });
   setState({ files: replace(state.files, file) });
   await touchProject(file.projectId);
   announce();
   return file;
 }
 
-/** Swaps a file's contents for an upload. Visualizations using the file keep working. */
-export async function replaceFile(fileId: string, source: File): Promise<DataFile> {
-  const file = await ingestFile({ mode: 'replace', fileId, source, sourceName: source.name });
+/** Swaps a file's contents for what is uploaded. Visualizations using the file keep working. */
+export async function replaceFile(fileId: string, upload: Upload): Promise<DataFile> {
+  const file = await ingestFile({ mode: 'replace', fileId, sources: sourcesOf(upload) });
   setState({ files: replace(state.files, file) });
   await touchProject(file.projectId);
   announce();

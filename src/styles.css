@@ -383,6 +383,31 @@ select.input {
   overflow-y: auto;
 }
 
+/* Rows of two lines: what is chosen, and what it stands for. */
+.check-list.is-roomy .check {
+  align-items: flex-start;
+  padding: 6px;
+}
+
+.check-list.is-roomy .check input {
+  margin-top: 3px;
+}
+
+.check-lines {
+  display: flex;
+  flex: 1;
+  flex-direction: column;
+  min-width: 0;
+}
+
+.check-lines .check-label {
+  font-weight: 500;
+}
+
+.check-lines .check-meta {
+  overflow-wrap: anywhere;
+}
+
 .file-dot {
   display: inline-block;
   width: 10px;

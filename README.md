@@ -45,6 +45,11 @@ publishes from your machine.
   **replace** its contents (visualizations stay attached), rename or delete it. Uploading
   a file whose name is already taken offers the same choices. Click a file to inspect its
   fields and first records.
+- **Files that go together.** A run that writes one file per checkpoint leaves names that
+  differ only by a number: `run.0120.json`, `run.0240.json`, … Uploaded together, they
+  can be **combined** into one file, with their records in the order of the numbers, so
+  that the run is one line in a chart instead of one per checkpoint. Append and replace
+  take several files at once as well, for the checkpoints that come later.
 - **Visualizations** are a query plus a way to show its result: a line, area, bar or
   scatter chart, or a table. Every chart also has a table view of the same rows, and the
   result can be downloaded as CSV. The expand button on a visualization's card, or on the
