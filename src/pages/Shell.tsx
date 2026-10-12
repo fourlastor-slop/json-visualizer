@@ -29,7 +29,7 @@ export function Shell({ crumbs = [], actions, fill = false, children }: Props) {
   return (
     <div className={fill ? 'shell is-fill' : 'shell'}>
       <header className="topbar">
-        <a className="brand" href={hrefFor({ page: 'projects' })}>
+        <a className="brand" href={hrefFor({ page: 'projects' })} aria-label="JSON Explorer: all projects">
           <svg width="20" height="20" viewBox="0 0 32 32" aria-hidden="true">
             <rect width="32" height="32" rx="7" fill="var(--text)" />
             <path d="M7 22l6-8 5 4 7-10" fill="none" stroke="var(--surface)" strokeWidth="2.6" strokeLinecap="round" strokeLinejoin="round" />
@@ -40,7 +40,7 @@ export function Shell({ crumbs = [], actions, fill = false, children }: Props) {
           {crumbs.map((crumb, i) => (
             <span key={i} className="crumb">
               <Icon name="chevronRight" size={13} />
-              {crumb.href ? <a href={crumb.href}>{crumb.label}</a> : <span aria-current="page">{crumb.label}</span>}
+              {crumb.href ? <a href={crumb.href}>{crumb.label}</a> : <span aria-current="page">{typeof crumb.label === 'string' ? <span className="crumb-text">{crumb.label}</span> : crumb.label}</span>}
             </span>
           ))}
         </nav>

@@ -1,5 +1,5 @@
 /** One plot: axes, marks, and the hover layer. A chart is one or more of these. */
-import { type KeyboardEvent, type PointerEvent, type ReactNode, useId, useMemo, useRef, useState } from 'react';
+import { type KeyboardEvent, type PointerEvent, type ReactNode, useId, useLayoutEffect, useMemo, useRef, useState } from 'react';
 import { formatNumber } from '../lib/format';
 import { AXIS_FONT, textWidth, truncate } from '../lib/measure';
 import { type Pixel, areaPath, barPath, buildXAxis, buildYAxis, formatX, linePath, linePixels, nearestIndex, pointsInView } from './chartGeometry';
@@ -39,6 +39,8 @@ const AXIS_BAND = 24;
 const MAX_BAR = 24;
 const BAR_GAP = 2;
 const END_LABEL_LIMIT = 4;
+/** Distance kept between the crosshair and the tooltip beside it. */
+const TOOLTIP_GAP = 14;
 
 /** A short stroke in a series' color and pattern: the key used in tooltips and legends. */
 export function LineKey({ color, dash }: { color: string | null; dash: string }) {
@@ -51,6 +53,7 @@ export function LineKey({ color, dash }: { color: string | null; dash: string })
 
 export function ChartPanel({ model, panel, index, width, height, xDomain, xValues, hover, onHover, onZoom, zeroBased, xLabel }: Props) {
   const clipId = useId();
+  const tooltip = useRef<HTMLDivElement>(null);
   const [drag, setDrag] = useState<{ from: number; to: number } | null>(null);
   const dragStart = useRef<number | null>(null);
 
@@ -238,8 +241,22 @@ export function ChartPanel({ model, panel, index, width, height, xDomain, xValue
     if (heights.some((py, i) => i > 0 && py - heights[i - 1]! < 14)) endLabels = [];
   }
 
-  const tooltipOnLeft = activePx > plotWidth / 2;
-  const tooltipTop = Math.max(0, Math.min((active?.py ?? 0) - 16, plotHeight - (readout.length * 20 + 34)));
+  // The tooltip is placed once it has been measured, and before it is painted: beside the
+  // crosshair, on the side that has room. It may reach over a neighboring plot, but never
+  // past the edge of the chart: one that stuck out would push whatever contains the chart
+  // into scrolling.
+  useLayoutEffect(() => {
+    const element = tooltip.current;
+    const frame = element?.parentElement?.getBoundingClientRect();
+    if (!element || !frame || !active) return;
+    const chart = element.closest('.chart-body')?.getBoundingClientRect() ?? frame;
+    const [min, max] = [chart.left - frame.left, chart.right - frame.left - element.offsetWidth];
+    const anchor = left + activePx;
+    let x = anchor + TOOLTIP_GAP;
+    if (x > max) x = anchor - TOOLTIP_GAP - element.offsetWidth;
+    element.style.left = `${Math.max(min, Math.min(x, max))}px`;
+    element.style.top = `${Math.max(0, Math.min(TOP + active.py - 16, TOP + plotHeight + AXIS_BAND - element.offsetHeight))}px`;
+  });
 
   return (
     <div className="chart-panel" style={{ width }}>
@@ -308,14 +325,7 @@ export function ChartPanel({ model, panel, index, width, height, xDomain, xValue
           </g>
         </svg>
         {hover?.panel === index && inView && readout.length > 0 && (
-          <div
-            className="chart-tooltip"
-            role="status"
-            style={{
-              top: TOP + tooltipTop,
-              ...(tooltipOnLeft ? { right: width - left - activePx + 14 } : { left: left + activePx + 14 }),
-            }}
-          >
+          <div ref={tooltip} className="chart-tooltip" role="status">
             <div className="chart-tooltip-x">{isScatter ? readout[0]!.series.label : formatX(model, hover.x)}</div>
             {isScatter ? (
               <>

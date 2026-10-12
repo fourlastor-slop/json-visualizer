@@ -6,8 +6,11 @@ import type { ChartModel, LegendEntry } from './chartModel';
 
 interface Props {
   model: ChartModel;
-  /** Height available for the plots. Many panels may take more, and scroll. */
-  height: number;
+  /**
+   * Height for the plots, or 'fill' to use whatever the container leaves once the legend
+   * has taken its share. Many panels may need more than that, and scroll.
+   */
+  height: number | 'fill';
   zeroBased: boolean;
 }
 
@@ -15,18 +18,26 @@ const MIN_PANEL_WIDTH = 240;
 const MIN_PANEL_HEIGHT = 150;
 const PANEL_GAP = 12;
 
-function useWidth<T extends HTMLElement>(): [React.RefObject<T | null>, number] {
+/**
+ * The inner size of an element, kept current. The height is tracked only on request: where
+ * it follows the content instead of the container, tracking it would re-render for nothing.
+ */
+function useSize<T extends HTMLElement>(trackHeight: boolean): [React.RefObject<T | null>, { width: number; height: number }] {
   const ref = useRef<T>(null);
-  const [width, setWidth] = useState(0);
+  const [size, setSize] = useState({ width: 0, height: 0 });
   useLayoutEffect(() => {
     const element = ref.current;
     if (!element) return;
-    setWidth(element.clientWidth);
-    const observer = new ResizeObserver(() => setWidth(element.clientWidth));
+    const measure = () => {
+      const next = { width: element.clientWidth, height: trackHeight ? element.clientHeight : 0 };
+      setSize((current) => (current.width === next.width && current.height === next.height ? current : next));
+    };
+    measure();
+    const observer = new ResizeObserver(measure);
     observer.observe(element);
     return () => observer.disconnect();
-  }, []);
-  return [ref, width];
+  }, [trackHeight]);
+  return [ref, size];
 }
 
 function LegendItem({ entry, type, hidden, onToggle, onIsolate }: { entry: LegendEntry; type: ChartModel['type']; hidden: boolean; onToggle(): void; onIsolate(): void }) {
@@ -46,7 +57,10 @@ function LegendItem({ entry, type, hidden, onToggle, onIsolate }: { entry: Legen
 }
 
 export function Chart({ model, height, zeroBased }: Props) {
-  const [ref, width] = useWidth<HTMLDivElement>();
+  const fill = height === 'fill';
+  const [body, size] = useSize<HTMLDivElement>(fill);
+  const width = size.width;
+  const available = fill ? size.height : height;
   const [hidden, setHidden] = useState<ReadonlySet<string>>(new Set());
   const [hover, setHover] = useState<Hover | null>(null);
   const [zoom, setZoom] = useState<[number, number] | null>(null);
@@ -78,10 +92,15 @@ export function Chart({ model, height, zeroBased }: Props) {
   }, [panels]);
 
   const zoomable = model.xKind !== 'category' && model.type !== 'scatter';
-  const columns = panels.length <= 1 ? 1 : Math.max(1, Math.min(panels.length, Math.floor((width + PANEL_GAP) / (MIN_PANEL_WIDTH + PANEL_GAP)), Math.round(Math.sqrt((panels.length * width) / (height * 1.8)))));
+  const ready = width > 0 && available > 0;
+  const columns = panels.length <= 1 ? 1 : Math.max(1, Math.min(panels.length, Math.floor((width + PANEL_GAP) / (MIN_PANEL_WIDTH + PANEL_GAP)), Math.round(Math.sqrt((panels.length * width) / (available * 1.8)))));
   const rows = Math.ceil(panels.length / columns);
   const panelWidth = Math.floor((width - PANEL_GAP * (columns - 1)) / columns);
-  const panelHeight = Math.max(MIN_PANEL_HEIGHT, Math.floor((height - PANEL_GAP * (rows - 1)) / rows));
+  const panelHeight = Math.max(MIN_PANEL_HEIGHT, Math.floor((available - PANEL_GAP * (rows - 1)) / rows));
+  // When filling a container, the plots scroll inside it only if they cannot all be given
+  // their minimum height. Deciding that here, rather than leaving it to `overflow: auto`,
+  // keeps tooltips that reach past a plot's edge from summoning scrollbars.
+  const scrolls = fill && rows * MIN_PANEL_HEIGHT + PANEL_GAP * (rows - 1) > available;
 
   const toggle = (key: string) =>
     setHidden((current) => {
@@ -100,7 +119,7 @@ export function Chart({ model, height, zeroBased }: Props) {
     });
 
   return (
-    <div className="chart" ref={ref}>
+    <div className={fill ? 'chart is-fill' : 'chart'}>
       {(model.legend.length > 0 || zoom) && (
         <div className="chart-legend">
           {model.legend.map((group, i) => (
@@ -117,28 +136,30 @@ export function Chart({ model, height, zeroBased }: Props) {
           )}
         </div>
       )}
-      {width > 0 && panels.length === 0 && <div className="chart-empty">Every series is hidden. Click a legend entry to show it again.</div>}
-      {width > 0 && panels.length > 0 && (
-        <div className="chart-panels" style={{ gridTemplateColumns: `repeat(${columns}, ${panelWidth}px)`, gap: PANEL_GAP }}>
-          {panels.map((panel, index) => (
-            <ChartPanel
-              key={panel.key}
-              model={model}
-              panel={panel}
-              index={index}
-              width={panelWidth}
-              height={panelHeight}
-              xDomain={xDomain}
-              xValues={xValues}
-              hover={hover}
-              onHover={setHover}
-              onZoom={zoomable ? setZoom : null}
-              zeroBased={zeroBased}
-              xLabel={model.x ?? 'x'}
-            />
-          ))}
-        </div>
-      )}
+      <div className={scrolls ? 'chart-body is-scrolling' : 'chart-body'} ref={body}>
+        {ready && panels.length === 0 && <div className="chart-empty">Every series is hidden. Click a legend entry to show it again.</div>}
+        {ready && panels.length > 0 && (
+          <div className="chart-panels" style={{ gridTemplateColumns: `repeat(${columns}, ${panelWidth}px)`, gap: PANEL_GAP }}>
+            {panels.map((panel, index) => (
+              <ChartPanel
+                key={panel.key}
+                model={model}
+                panel={panel}
+                index={index}
+                width={panelWidth}
+                height={panelHeight}
+                xDomain={xDomain}
+                xValues={xValues}
+                hover={hover}
+                onHover={setHover}
+                onZoom={zoomable ? setZoom : null}
+                zeroBased={zeroBased}
+                xLabel={model.x ?? 'x'}
+              />
+            ))}
+          </div>
+        )}
+      </div>
       {model.notes.map((note) => (
         <p key={note} className="chart-note">
           {note}

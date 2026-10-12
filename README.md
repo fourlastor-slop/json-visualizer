@@ -34,7 +34,8 @@ load modules or workers from `file://`.
   fields and first records.
 - **Visualizations** are a query plus a way to show its result: a line, area, bar or
   scatter chart, or a table. Every chart also has a table view of the same rows, and the
-  result can be downloaded as CSV.
+  result can be downloaded as CSV. The expand button on a visualization's card, or on the
+  editor's preview, opens the result on its own, filling the window.
 - **Several files at once.** A visualization runs its query on each selected file
   separately. In charts each file has its own color: with more than one measure, each
   measure gets its own small plot (or, if you prefer one plot, its own stroke pattern). In

@@ -14,8 +14,8 @@ interface Props {
   table: TableConfig;
   files: readonly DataFile[];
   results: Results;
-  /** Height for the chart's plots, or the table's scrolling area. */
-  height: number;
+  /** Height for the chart's plots or the table's scrolling area, or 'fill' to take all the container has. */
+  height: number | 'fill';
 }
 
 /** Pairs each file with its rows, under the name and color it currently has. */
@@ -41,7 +41,7 @@ export function VizView({ kind, chart, table, files, results, height }: Props) {
 
   return (
     // While a newer query runs, the previous picture stays, dimmed: no flash, no jump.
-    <div className={results.pending ? 'viz is-pending' : 'viz'}>
+    <div className={`viz${results.pending ? ' is-pending' : ''}${height === 'fill' ? ' is-fill' : ''}`}>
       {failures.map((failure) => (
         <div key={failure.fileId} className="viz-error" role="alert">
           <strong>{files.find((file) => file.id === failure.fileId)?.name}</strong>

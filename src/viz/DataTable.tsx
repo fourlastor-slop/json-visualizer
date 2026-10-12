@@ -5,8 +5,8 @@ import type { TableModel } from './tableModel';
 
 interface Props {
   table: TableModel;
-  /** Height of the scrolling area; `null` lets the table take the height it needs. */
-  height: number | null;
+  /** Tallest the scrolling area may get, or 'fill' to take the height its container has left. */
+  height: number | 'fill';
 }
 
 const ROW_HEIGHT = 28;
@@ -38,7 +38,9 @@ function cell(value: unknown): { text: string; className: string; title?: string
 export function DataTable({ table, height }: Props) {
   const scroller = useRef<HTMLDivElement>(null);
   const [scrollTop, setScrollTop] = useState(0);
-  const [viewport, setViewport] = useState(height ?? 400);
+  const fill = height === 'fill';
+  // A first guess at how many rows are in view, until the scrolling area is measured.
+  const [viewport, setViewport] = useState(fill ? 600 : height);
   const [sort, setSort] = useState<{ column: number; descending: boolean } | null>(null);
 
   // Sorting refers to a column position, which a new table shape invalidates.
@@ -114,7 +116,7 @@ export function DataTable({ table, height }: Props) {
   }
 
   return (
-    <div className="table-scroll" ref={scroller} style={height === null ? undefined : { maxHeight: height }} onScroll={(event) => setScrollTop(event.currentTarget.scrollTop)}>
+    <div className={fill ? 'table-scroll is-fill' : 'table-scroll'} ref={scroller} style={fill ? undefined : { maxHeight: height }} onScroll={(event) => setScrollTop(event.currentTarget.scrollTop)}>
       <table className="table" style={{ width: widths.reduce((total, width) => total + width, 0) }}>
         <colgroup>
           {widths.map((width, c) => (

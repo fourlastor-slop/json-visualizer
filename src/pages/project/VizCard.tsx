@@ -20,6 +20,8 @@ export function VizCard({ viz, files }: { viz: Visualization; files: DataFile[] 
   const used = viz.fileIds.map((id) => files.find((file) => file.id === id)).filter((file): file is DataFile => file !== undefined);
   const results = useResults(used, viz.query);
   const editHref = hrefFor({ page: 'editor', projectId: viz.projectId, vizId: viz.id });
+  // Opens on what the card is showing: the chart, or its rows if the card was switched to them.
+  const viewHref = hrefFor({ page: 'view', projectId: viz.projectId, vizId: viz.id, table: asTable && viz.kind === 'chart' });
   const isTemplate = viz.templateId !== null;
 
   const remove = async () => {
@@ -58,9 +60,13 @@ export function VizCard({ viz, files }: { viz: Visualization; files: DataFile[] 
             <Icon name="table" />
           </button>
         )}
+        <a className="icon-button" href={viewHref} title="View full screen" aria-label={`View ${viz.name} full screen`}>
+          <Icon name="expand" />
+        </a>
         <Menu
           label={`Actions for ${viz.name}`}
           items={[
+            { label: 'View full screen', icon: 'expand', onSelect: () => navigate({ page: 'view', projectId: viz.projectId, vizId: viz.id, table: asTable && viz.kind === 'chart' }) },
             { label: 'Edit', icon: 'pencil', onSelect: () => navigate({ page: 'editor', projectId: viz.projectId, vizId: viz.id }) },
             { label: 'Duplicate', icon: 'copy', onSelect: () => void duplicateVisualization(viz.id).catch((error) => toastError(error)) },
             {

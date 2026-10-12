@@ -39,9 +39,24 @@ describe('starter blocks', () => {
 
 describe('routes', () => {
   it('round-trip through the URL hash', () => {
-    for (const route of [{ page: 'projects' }, { page: 'templates' }, { page: 'project', projectId: 'abc' }, { page: 'editor', projectId: 'abc', vizId: 'def' }] as const) {
-      expect(parseRoute(hrefFor(route))).toEqual(route);
-    }
+    const routes = [
+      { page: 'projects' },
+      { page: 'templates' },
+      { page: 'project', projectId: 'abc' },
+      { page: 'editor', projectId: 'abc', vizId: 'def' },
+      { page: 'view', projectId: 'abc', vizId: 'def', table: false },
+      { page: 'view', projectId: 'abc', vizId: 'def', table: true },
+    ] as const;
+    for (const route of routes) expect(parseRoute(hrefFor(route))).toEqual(route);
+  });
+
+  it('keep the full-screen view apart from the editor of the same visualization', () => {
+    expect(hrefFor({ page: 'editor', projectId: 'abc', vizId: 'def' })).toBe('#/p/abc/v/def');
+    expect(hrefFor({ page: 'view', projectId: 'abc', vizId: 'def', table: false })).toBe('#/p/abc/v/def/view');
+    expect(hrefFor({ page: 'view', projectId: 'abc', vizId: 'def', table: true })).toBe('#/p/abc/v/def/view/table');
+    // Anything after the visualization that is not a known view falls back to the editor.
+    expect(parseRoute('#/p/abc/v/def/elsewhere')).toEqual({ page: 'editor', projectId: 'abc', vizId: 'def' });
+    expect(parseRoute('#/p/abc/v/def/view/chart')).toEqual({ page: 'view', projectId: 'abc', vizId: 'def', table: false });
   });
 
   it('send anything unrecognized to the project list', () => {

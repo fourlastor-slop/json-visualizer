@@ -575,6 +575,22 @@ select.input {
   font-weight: 600;
 }
 
+/* A plain name in the breadcrumbs is cut short rather than wrapped onto a second line. */
+.crumb-text {
+  min-width: 0;
+  padding: 3px 6px;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+/* On a narrow window the logo alone stands for the app, and the names get the room. */
+@media (max-width: 900px) {
+  .brand span {
+    display: none;
+  }
+}
+
 .topbar-actions {
   display: flex;
   align-items: center;
@@ -1128,11 +1144,14 @@ button.file-main:hover .file-name {
   cursor: crosshair;
 }
 
+/* Positioned by ChartPanel once measured. Never wider than its plot, so it always fits. */
 .chart-tooltip {
   position: absolute;
+  top: 0;
+  left: 0;
   z-index: 5;
-  min-width: 120px;
-  max-width: 300px;
+  min-width: min(120px, 100%);
+  max-width: min(300px, 100%);
   padding: 7px 9px;
   border: 1px solid var(--border);
   border-radius: 6px;
@@ -1298,6 +1317,41 @@ button.file-main:hover .file-name {
   flex: none;
   margin-right: 6px;
   border-radius: 50%;
+}
+
+/* ── Full-screen view ────────────────────────────────────────────────────── */
+
+/* The whole page is the chart's surface, so marks ringed in the surface color sit flush. */
+.view {
+  display: flex;
+  flex-direction: column;
+  height: 100%;
+  min-height: 0;
+  padding: 16px 20px 20px;
+  background: var(--chart-surface);
+}
+
+/* A visualization told to fill its container hands the height down: to the plots of a
+   chart, or to the scrolling rows of a table. */
+.viz.is-fill,
+.chart.is-fill,
+.chart.is-fill .chart-body,
+.view > .viz-message,
+.viz.is-fill > .viz-message {
+  flex: 1;
+  min-height: 0;
+}
+
+/* A table takes the height of its rows, up to what there is: then it scrolls. */
+.table-scroll.is-fill {
+  flex: 0 1 auto;
+  min-height: 0;
+}
+
+/* Set by Chart when the plots cannot all fit at their minimum height. */
+.chart-body.is-scrolling {
+  overflow-x: hidden;
+  overflow-y: auto;
 }
 
 /* ── Dialogs, menus, toasts ──────────────────────────────────────────────── */

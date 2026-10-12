@@ -1,5 +1,5 @@
 /** The visualization editor: blocks on the left; files, display options and a live preview on the right. */
-import { type PointerEvent, Suspense, lazy, useCallback, useEffect, useMemo, useRef, useState } from 'react';
+import { type PointerEvent, Suspense, lazy, useCallback, useMemo, useRef, useState } from 'react';
 import type { EditorChange } from '../blocks/BlocklyEditor';
 import type { Issue } from '../blocks/context';
 import { mergeAll } from '../data/schema';
@@ -9,7 +9,8 @@ import { downloadText, fileNameFor } from '../lib/download';
 import { formatNumber, plural } from '../lib/format';
 import { hrefFor } from '../lib/router';
 import { useTheme } from '../lib/theme';
-import { EditableText, EmptyState, FileDot, Segmented } from '../ui/controls';
+import { useDocumentTitle } from '../lib/title';
+import { EditableText, FileDot, Segmented } from '../ui/controls';
 import { toast, toastError } from '../ui/feedback';
 import { Icon } from '../ui/Icon';
 import { VizView, fileRows } from '../viz/VizView';
@@ -18,6 +19,7 @@ import { type ColumnInfo, describeColumns } from '../viz/columns';
 import { buildTable, toCsv } from '../viz/tableModel';
 import { type Results, useResults } from '../viz/useResults';
 import { Shell } from './Shell';
+import { VizNotFound } from './VizNotFound';
 
 const BlocklyEditor = lazy(() => import('../blocks/BlocklyEditor'));
 
@@ -314,6 +316,14 @@ function Editor({ viz, projectFiles }: { viz: Visualization; projectFiles: DataF
             >
               <Icon name="download" />
             </button>
+            <a
+              className="icon-button"
+              href={hrefFor({ page: 'view', projectId: viz.projectId, vizId: viz.id, table: asTable && viz.kind === 'chart' })}
+              title="View full screen, without the editor"
+              aria-label="View full screen, without the editor"
+            >
+              <Icon name="expand" />
+            </a>
           </div>
           <VizView kind={showTable ? 'table' : 'chart'} chart={viz.chart} table={viz.table} files={files} results={results} height={showTable ? 320 : 250} />
         </section>
@@ -353,32 +363,9 @@ export function EditorPage({ projectId, vizId }: { projectId: string; vizId: str
   const viz = state.visualizations.find((candidate) => candidate.id === vizId && candidate.projectId === projectId);
   const projectFiles = useMemo(() => state.files.filter((file) => file.projectId === projectId), [state.files, projectId]);
 
-  // A stale tab title is a small thing that makes several open editors hard to tell apart.
-  useEffect(() => {
-    if (!viz) return;
-    document.title = `${viz.name} · JSON Explorer`;
-    return () => {
-      document.title = 'JSON Explorer';
-    };
-  }, [viz?.name, viz]);
+  useDocumentTitle(viz?.name);
 
-  if (!project || !viz) {
-    return (
-      <Shell crumbs={[{ label: 'Not found' }]}>
-        <EmptyState
-          icon="line"
-          title="This visualization does not exist"
-          action={
-            <a className="button" href={project ? hrefFor({ page: 'project', projectId }) : hrefFor({ page: 'projects' })}>
-              {project ? `Back to ${project.name}` : 'All projects'}
-            </a>
-          }
-        >
-          It may have been deleted.
-        </EmptyState>
-      </Shell>
-    );
-  }
+  if (!project || !viz) return <VizNotFound project={project} />;
 
   const isTemplate = viz.templateId !== null;
   return (

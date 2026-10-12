@@ -6,6 +6,7 @@ import { ProjectPage } from './pages/ProjectPage';
 import { ProjectsPage } from './pages/ProjectsPage';
 import { Shell } from './pages/Shell';
 import { TemplatesPage } from './pages/TemplatesPage';
+import { ViewPage } from './pages/ViewPage';
 import { EmptyState } from './ui/controls';
 import { Feedback } from './ui/feedback';
 
@@ -16,6 +17,8 @@ function Page() {
       return <ProjectPage key={route.projectId} projectId={route.projectId} />;
     case 'editor':
       return <EditorPage key={route.vizId} projectId={route.projectId} vizId={route.vizId} />;
+    case 'view':
+      return <ViewPage key={route.vizId} projectId={route.projectId} vizId={route.vizId} table={route.table} />;
     case 'templates':
       return <TemplatesPage />;
     default:

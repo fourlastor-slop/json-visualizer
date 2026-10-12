@@ -14,6 +14,7 @@ const ICONS = {
   copy: <path d="M9 9h10v11H9zM5 15V4h10" />,
   upload: <path d="M12 16V4M7 9l5-5 5 5M4 20h16" />,
   download: <path d="M12 4v12M7 11l5 5 5-5M4 20h16" />,
+  expand: <path d="M9 4H4v5M15 4h5v5M9 20H4v-5M15 20h5v-5" />,
   file: <path d="M7 3h7l5 5v13H7zM14 3v5h5" />,
   append: <path d="M7 3h7l5 5v13H7zM14 3v5h5M13 12v6M10 15h6" />,
   replace: <path d="M4 10a8 8 0 0 1 14-4l2 2M20 14a8 8 0 0 1-14 4l-2-2M20 4v4h-4M4 20v-4h4" />,
