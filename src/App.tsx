@@ -1,6 +1,7 @@
 import { useEffect } from 'react';
 import { loadAll, useAppState } from './data/store';
 import { useRoute } from './lib/router';
+import { syncMcp } from './mcp/state';
 import { EditorPage } from './pages/EditorPage';
 import { ProjectPage } from './pages/ProjectPage';
 import { ProjectsPage } from './pages/ProjectsPage';
@@ -30,7 +31,8 @@ export function App() {
   const state = useAppState();
 
   useEffect(() => {
-    void loadAll();
+    // MCP clients are served once there is something to serve them from.
+    void loadAll().then(syncMcp);
   }, []);
 
   if (!state.ready) return null;

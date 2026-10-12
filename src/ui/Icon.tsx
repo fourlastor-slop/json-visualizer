@@ -50,6 +50,7 @@ const ICONS = {
   alert: <path d="M12 4l9 16H3zM12 10v4M12 17v.01" />,
   code: <path d="M9 8l-4 4 4 4M15 8l4 4-4 4" />,
   layers: <path d="M12 4l8 4-8 4-8-4zM4 12l8 4 8-4M4 16l8 4 8-4" />,
+  plug: <path d="M9 3v5M15 3v5M6.5 8h11v3.5a5.5 5.5 0 0 1-11 0zM12 17v4" />,
   folder: <path d="M3 7a1 1 0 0 1 1-1h5l2 2h9a1 1 0 0 1 1 1v9a1 1 0 0 1-1 1H4a1 1 0 0 1-1-1z" />,
   info: (
     <>

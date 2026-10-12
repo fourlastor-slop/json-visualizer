@@ -5,7 +5,8 @@ blocks, the blocks generate [JSONata](https://jsonata.org/), and the results are
 charts or tables — on one file, or on several files at once to compare them.
 
 It is a static site. There is no backend: files, queries and settings are stored in the
-browser's IndexedDB and never leave it.
+browser's IndexedDB and stay there, unless you connect an AI client to it yourself (see
+[MCP server](#mcp-server)).
 
 ## Running it
 
@@ -100,6 +101,47 @@ $[$exists(evaluation_suite)].{
 }
 ```
 
+## MCP server
+
+An AI client that speaks the [Model Context Protocol](https://modelcontextprotocol.io/),
+such as Claude Code, Claude Desktop or Cursor, can work with the projects in your browser:
+list files and their fields, run JSONata queries on them, read your visualizations and add
+new ones. It is off until you turn it on, under the plug icon in the top bar; that dialog
+also gives the exact commands to set a client up.
+
+A page cannot be connected to from outside, and a static site has no server to relay, so
+the client reaches the tab through a small program on your computer, the **bridge**:
+
+```
+MCP client  ⇄ stdio ⇄  bridge (Node.js)  ⇄ WebSocket on 127.0.0.1 ⇄  the open tab
+```
+
+The client starts the bridge like any other MCP server. The tab connects to it and answers
+the calls, with the same data and query engine as the interface, so it works only while a
+tab of the app is open. The bridge is a single file with no dependencies, served by the
+site itself (`json-explorer-mcp.mjs`); its source is in [`mcp-bridge/`](mcp-bridge/).
+
+| Tool | What it does |
+| --- | --- |
+| `list_projects` | projects, with their files and visualizations |
+| `describe_file` | the fields of a file: types, ranges, examples, and the JSONata path of each |
+| `run_query` | runs a JSONata query on one or more files and returns the first rows |
+| `get_visualization` | a visualization's files, query, settings and current rows |
+| `create_visualization` | adds a chart or table made from a JSONata query |
+
+What to know about it:
+
+- **What a client asks for leaves the browser**, and goes to the client and the AI service
+  behind it. A client cannot change or delete files; it can add visualizations.
+- **Pairing.** The bridge listens on the loopback address only, accepts pages of this site
+  only, and the page and the bridge prove to each other that they hold the same pairing
+  code before anything else is said. The code is generated in the browser and given to
+  the client as part of its settings.
+- **Several clients at once** each start their own bridge. The first takes the port and
+  the others send their calls through it; when it exits, another takes over.
+- **Browsers.** Chrome, Edge and Firefox let a secure page connect to a program on the
+  same computer; Chrome asks for permission first. Safari may refuse.
+
 ## How it is built
 
 | Path | Contents |
@@ -108,7 +150,9 @@ $[$exists(evaluation_suite)].{
 | `src/blocks/` | Block definitions, the field picker, the JSONata generator, and the analysis that knows which fields are visible where |
 | `src/viz/` | Turning rows into chart and table models, and drawing them (SVG, no charting library) |
 | `src/pages/`, `src/ui/` | The React interface |
-| `tests/` | Unit tests, including the generator run on headless Blockly |
+| `src/mcp/` | The page's side of the MCP server: the tools, and the connection to the bridge |
+| `mcp-bridge/` | The bridge: a Node.js program, in plain JavaScript checked by TypeScript |
+| `tests/` | Unit tests, including the generator run on headless Blockly, and an MCP client talking to the tools through a real bridge |
 
 A few things worth knowing before changing it:
 
@@ -121,6 +165,10 @@ A few things worth knowing before changing it:
 - **The generator emits standard JSONata**, with no custom functions, so a query can be
   copied elsewhere. `src/blocks/generator.ts` explains the two shapes it produces (a single
   path, or a block rebinding `$rows`) and why.
+- **MCP tools are defined once**, in `mcp-bridge/tools.json`, and carried out in
+  `src/mcp/tools.ts`. The bridge passes calls on without knowing the tools: it announces
+  the list the page gives it, and falls back on its own copy only until a page connects.
+  `scripts/build-bridge.mjs` bundles the bridge into the one file the site serves.
 - **Chart colors** are the eight slots defined in `src/styles.css` (light and dark steps of
   the same hues). `src/data/colors.ts` holds the measured separation between every pair,
   which is what the random draw uses.

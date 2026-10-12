@@ -1,0 +1,98 @@
+[
+  {
+    "name": "list_projects",
+    "title": "List projects",
+    "description": "Lists the projects in the user's JSON Explorer, each with its data files and its visualizations. A data file is a JSON or JSON Lines upload held as a list of records. Start here: every other tool takes the ids this one returns.",
+    "inputSchema": {
+      "type": "object",
+      "properties": {},
+      "additionalProperties": false
+    },
+    "annotations": { "readOnlyHint": true, "openWorldHint": false }
+  },
+  {
+    "name": "describe_file",
+    "title": "Describe a file's fields",
+    "description": "Describes the fields of the records of a data file: the type of each, how many records have it, and its range or an example value, each with the JSONata path that reads it. The shape is inferred from every record. Use it before writing a query. `path` descends into a nested object or list first; in it, \"*\" stands for any key of an object that is used as a dictionary. `depth` is how many levels of nesting are listed.",
+    "inputSchema": {
+      "type": "object",
+      "properties": {
+        "file_id": { "type": "string", "description": "Id of the file, from list_projects." },
+        "path": {
+          "type": "array",
+          "items": { "type": "string" },
+          "maxItems": 20,
+          "description": "Keys to descend through before listing, outermost first. Default: the record itself."
+        },
+        "depth": { "type": "integer", "minimum": 1, "maximum": 6, "default": 2, "description": "Levels of nesting to list." }
+      },
+      "required": ["file_id"],
+      "additionalProperties": false
+    },
+    "annotations": { "readOnlyHint": true, "openWorldHint": false }
+  },
+  {
+    "name": "run_query",
+    "title": "Run a JSONata query",
+    "description": "Runs a JSONata query on one or more data files and returns the resulting rows. The input of the query, `$`, is the list of the file's records: `$count($)` counts them, `$[status = \"ok\"]` keeps some, `$.{\"day\": date, \"total\": price * quantity}` makes one row per record, and `$[[0..4]]` is the first five as they are. Names that are not plain identifiers go in backticks: `` `win-rate` ``. With several files the same query runs on each one separately. A result that is a list gives one row per item, anything else gives a single row, and a row that is not an object has one column, `value`. Only the first `limit` rows come back, with the total count: filter, aggregate or pick columns in the query instead of reading raw records through.",
+    "inputSchema": {
+      "type": "object",
+      "properties": {
+        "file_ids": {
+          "type": "array",
+          "items": { "type": "string" },
+          "minItems": 1,
+          "maxItems": 10,
+          "description": "Ids of the files to query, from list_projects."
+        },
+        "query": { "type": "string", "minLength": 1, "maxLength": 20000, "description": "The JSONata query." },
+        "limit": { "type": "integer", "minimum": 1, "maximum": 500, "default": 50, "description": "Rows returned per file." }
+      },
+      "required": ["file_ids", "query"],
+      "additionalProperties": false
+    },
+    "annotations": { "readOnlyHint": true, "openWorldHint": false }
+  },
+  {
+    "name": "get_visualization",
+    "title": "Read a visualization",
+    "description": "Returns a chart or table the user has built in JSON Explorer: the files it runs on, its JSONata query, how it is drawn, and the rows it shows now.",
+    "inputSchema": {
+      "type": "object",
+      "properties": {
+        "visualization_id": { "type": "string", "description": "Id of the visualization, from list_projects." },
+        "limit": { "type": "integer", "minimum": 0, "maximum": 500, "default": 50, "description": "Rows returned per file. 0 returns the definition alone." }
+      },
+      "required": ["visualization_id"],
+      "additionalProperties": false
+    },
+    "annotations": { "readOnlyHint": true, "openWorldHint": false }
+  },
+  {
+    "name": "create_visualization",
+    "title": "Create a visualization",
+    "description": "Adds a chart or a table to the user's project, drawn from a JSONata query (the rules of run_query apply; try the query there first). It runs on one or more files of the same project, and in a chart every file is drawn in its own color. For a chart each row is one point: `x` names the column on the X axis and `y` the numeric columns to plot. Left out, they are the first column and every other numeric column. The visualization shows up in the user's browser at once; the result includes its link.",
+    "inputSchema": {
+      "type": "object",
+      "properties": {
+        "file_ids": {
+          "type": "array",
+          "items": { "type": "string" },
+          "minItems": 1,
+          "maxItems": 10,
+          "description": "Ids of the files it runs on, all from one project."
+        },
+        "name": { "type": "string", "minLength": 1, "maxLength": 120, "description": "A short title, shown above it." },
+        "query": { "type": "string", "minLength": 1, "maxLength": 20000, "description": "The JSONata query that produces its rows." },
+        "kind": { "type": "string", "enum": ["chart", "table"], "default": "chart" },
+        "chart_type": { "type": "string", "enum": ["line", "area", "bar", "scatter"], "default": "line", "description": "For charts." },
+        "x": { "type": "string", "description": "For charts: the column on the X axis." },
+        "y": { "type": "array", "items": { "type": "string" }, "minItems": 1, "maxItems": 12, "description": "For charts: the columns to plot." },
+        "split_by": { "type": "string", "description": "For charts: a column whose distinct values split the rows into separate series." }
+      },
+      "required": ["file_ids", "name", "query"],
+      "additionalProperties": false
+    },
+    "annotations": { "readOnlyHint": false, "destructiveHint": false, "idempotentHint": false, "openWorldHint": false }
+  }
+]

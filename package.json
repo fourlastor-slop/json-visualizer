@@ -4,12 +4,12 @@
   "version": "0.1.0",
   "type": "module",
   "scripts": {
-    "predev": "node scripts/copy-blockly-media.mjs",
+    "predev": "node scripts/copy-blockly-media.mjs && node scripts/build-bridge.mjs",
     "dev": "vite",
-    "prebuild": "node scripts/copy-blockly-media.mjs",
-    "build": "tsc --noEmit && vite build",
+    "prebuild": "node scripts/copy-blockly-media.mjs && node scripts/build-bridge.mjs",
+    "build": "npm run typecheck && vite build",
     "preview": "vite preview",
-    "typecheck": "tsc --noEmit",
+    "typecheck": "tsc --noEmit && tsc --noEmit -p mcp-bridge",
     "test": "vitest run"
   },
   "dependencies": {
@@ -23,6 +23,7 @@
   "devDependencies": {
     "@types/d3-array": "^3.2.2",
     "@types/d3-scale": "^4.0.9",
+    "@types/node": "^24.19.2",
     "@types/react": "^19.3.0",
     "@types/react-dom": "^19.3.0",
     "@vitejs/plugin-react": "^6.1.2",

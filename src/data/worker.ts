@@ -9,8 +9,9 @@ import type { QueryResult, Row } from './query';
 const api = {
   ingest,
 
-  async run(fileId: string, rev: number, query: string): Promise<QueryResult> {
-    return runQuery(query, await loadRecords(fileId, rev));
+  /** Runs a query on a file. `maxRows` caps the rows sent back; the total is still counted. */
+  async run(fileId: string, rev: number, query: string, maxRows?: number): Promise<QueryResult> {
+    return runQuery(query, await loadRecords(fileId, rev), maxRows === undefined ? {} : { maxRows });
   },
 
   /** A page of a file's raw records. */

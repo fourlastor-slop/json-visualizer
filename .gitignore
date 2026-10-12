@@ -6,6 +6,9 @@ coverage/
 # Copied from node_modules/blockly/media by scripts/copy-blockly-media.mjs
 public/blockly-media/
 
+# The MCP bridge as one file, bundled from mcp-bridge/ by scripts/build-bridge.mjs
+public/json-explorer-mcp.mjs
+
 # Wrangler's working directory
 .wrangler/
 

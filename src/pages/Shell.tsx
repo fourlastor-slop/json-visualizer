@@ -1,8 +1,12 @@
 /** The frame around every page: the top bar with breadcrumbs, and the page body. */
-import type { ReactNode } from 'react';
+import { type ReactNode, Suspense, lazy, useState } from 'react';
 import { hrefFor } from '../lib/router';
 import { type ThemePreference, setThemePreference, useThemePreference } from '../lib/theme';
+import { describeMcpStatus, useMcpSettings, useMcpStatus } from '../mcp/state';
 import { Icon, type IconName } from '../ui/Icon';
+
+// Fetched when it is first opened: few people will.
+const McpDialog = lazy(() => import('../mcp/McpDialog'));
 
 export interface Crumb {
   label: ReactNode;
@@ -22,6 +26,27 @@ interface Props {
   /** Lets the body fill the window instead of scrolling in a centered column. */
   fill?: boolean;
   children: ReactNode;
+}
+
+/** Opens the MCP dialog, and shows at a glance whether a client can reach this browser. */
+function McpButton() {
+  const [open, setOpen] = useState(false);
+  const status = useMcpStatus();
+  const { tone, title } = describeMcpStatus(status, useMcpSettings());
+  const label = `MCP server: ${title.charAt(0).toLowerCase()}${title.slice(1)}`;
+  return (
+    <>
+      <button type="button" className="icon-button mcp-button" onClick={() => setOpen(true)} title={label} aria-label={label}>
+        <Icon name="plug" />
+        {status.phase !== 'off' && <span className={`status-dot is-${tone}`} aria-hidden="true" />}
+      </button>
+      {open && (
+        <Suspense fallback={null}>
+          <McpDialog onClose={() => setOpen(false)} />
+        </Suspense>
+      )}
+    </>
+  );
 }
 
 export function Shell({ crumbs = [], actions, fill = false, children }: Props) {
@@ -50,6 +75,7 @@ export function Shell({ crumbs = [], actions, fill = false, children }: Props) {
             <Icon name="layers" />
             <span>Templates</span>
           </a>
+          <McpButton />
           <button type="button" className="icon-button" onClick={() => setThemePreference(theme.next)} title={`${theme.label}. Click to change.`} aria-label={theme.label}>
             <Icon name={theme.icon} />
           </button>

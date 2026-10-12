@@ -1,21 +1,8 @@
 import 'fake-indexeddb/auto';
 import { beforeAll, describe, expect, it, vi } from 'vitest';
 
-// The store talks to the data worker through client.ts. There are no workers here, so
-// route those calls straight to the code the worker would run.
-vi.mock('../src/data/client', async () => {
-  const files = await import('../src/data/files');
-  const engine = await import('../src/data/engine');
-  return {
-    ingestFile: files.ingest,
-    forgetFiles: async (ids: string[]) => files.forget(ids),
-    previewFile: async (fileId: string, rev: number, offset: number, limit: number) => {
-      const records = await files.loadRecords(fileId, rev);
-      return { rows: engine.toRows(records.slice(offset, offset + limit)).rows, total: records.length };
-    },
-    runFileQuery: async (file: { id: string; rev: number }, query: string) => engine.runQuery(query, await files.loadRecords(file.id, file.rev)),
-  };
-});
+// The store talks to the data worker through client.ts; see directClient.ts.
+vi.mock('../src/data/client', () => import('./directClient'));
 
 import { runFileQuery } from '../src/data/client';
 import { separation } from '../src/data/colors';

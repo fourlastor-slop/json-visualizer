@@ -55,17 +55,18 @@ const results = new Map<string, Promise<QueryResult>>();
 
 /**
  * Runs a query on a file. Results are cached per file revision, so a dashboard showing
- * the same query in several places computes it once.
+ * the same query in several places computes it once. With `maxRows` only that many rows
+ * leave the worker, for callers that want a sample and the total.
  */
-export function runFileQuery(file: Pick<DataFile, 'id' | 'rev'>, query: string): Promise<QueryResult> {
-  const key = `${file.id}\n${file.rev}\n${query}`;
+export function runFileQuery(file: Pick<DataFile, 'id' | 'rev'>, query: string, maxRows?: number): Promise<QueryResult> {
+  const key = `${file.id}\n${file.rev}\n${maxRows ?? ''}\n${query}`;
   const cached = results.get(key);
   if (cached) {
     results.delete(key);
     results.set(key, cached);
     return cached;
   }
-  const result = call('run', file.id, file.rev, query);
+  const result = call('run', file.id, file.rev, query, maxRows);
   results.set(key, result);
   // A failure may be transient (the worker restarting), so it is not kept.
   result.catch(() => {
