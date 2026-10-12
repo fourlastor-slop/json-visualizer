@@ -1,0 +1,21 @@
+// How the site is published on Cloudflare: as a Worker made of static assets, with no code
+// of its own. .github/workflows/deploy.yml deploys it on every push to main.
+{
+  "$schema": "node_modules/wrangler/config-schema.json",
+  "name": "json-explorer",
+  "compatibility_date": "2026-10-01",
+
+  // With no "main" script, requests are answered straight from the files of the build.
+  // The app routes with the URL hash, so index.html is its only page and any other path
+  // is a plain 404: there is nothing to fall back to.
+  "assets": { "directory": "./dist" },
+
+  // A custom domain: Cloudflare creates the DNS record and the certificate for it when
+  // the Worker is deployed.
+  "routes": [{ "pattern": "json.fourlastor.org", "custom_domain": true }],
+
+  // That is the only address. Browser storage belongs to an origin, so at a second one
+  // (workers.dev, preview URLs) people would not find their projects.
+  "workers_dev": false,
+  "preview_urls": false
+}

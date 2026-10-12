@@ -6,6 +6,9 @@ coverage/
 # Copied from node_modules/blockly/media by scripts/copy-blockly-media.mjs
 public/blockly-media/
 
+# Wrangler's working directory
+.wrangler/
+
 # Sample data kept beside the code for trying things out. The dev server serves the
 # project root, so the app can fetch these without them being part of it. Fixtures that
 # belong in the repository go under tests/ instead.

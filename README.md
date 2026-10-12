@@ -22,6 +22,18 @@ relative and routing uses the URL hash, so no server configuration is needed. It
 served over http(s) — opening `index.html` from disk will not work, because browsers do not
 load modules or workers from `file://`.
 
+## Deploying
+
+Every push to `main` is published at https://json.fourlastor.org by
+`.github/workflows/deploy.yml`, which runs the tests, builds the site and uploads `dist/`
+to Cloudflare with [Wrangler](https://developers.cloudflare.com/workers/wrangler/). There
+it is a Worker made only of static assets; `wrangler.jsonc` names it and attaches it to
+its domain.
+
+The workflow reads the `CLOUDFLARE_ACCOUNT_ID` and `CLOUDFLARE_API_TOKEN` secrets. With
+the same two variables in your environment, `npm run build && npx wrangler deploy`
+publishes from your machine.
+
 ## How it is used
 
 - **Projects** hold files and visualizations. Create, rename and delete them from the
